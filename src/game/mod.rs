@@ -113,6 +113,11 @@ impl Unit {
         self.name.clone()
     }
 
+    /// returns the name of the unit 
+    pub fn attacks(&self) -> Vec<Attack> {
+        self.attacks.clone()
+    }
+
     /// deals damage to the unit, returning if its still alive or not
     fn deal_damage(&mut self, damage: u64) -> DamageStatus {
         // see if the damage would kill us

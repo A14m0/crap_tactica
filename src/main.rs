@@ -19,7 +19,29 @@ struct Command {
 //////////////// ACTION CMDS //////////////////////////
 /// Attack a target
 fn attack(game: &mut Game, unit_id: u64) -> game::ErrorOut {
+    let s = match game.get_unit(unit_id) {
+        Ok(a) => a,
+        Err(e) => {
+            println!("Failed to get unit: {}", e);
+            return game::ErrorOut::FAILED_GENERIC
+        }
+    };
+    
+    println!("{} can use the following attacks:", s.name());
+    let mut idx = 0;
+    for attack in s.attacks() {
+        println!(
+            "\t{}. {} (range {}, dmg {})", 
+            idx+1, 
+            attack.name(),
+            attack.range(),
+            attack.damage()
+        )
+    }
+
+
     println!("Attacking!");
+
     game::ErrorOut::SUCCESS
 }
 
@@ -193,7 +215,25 @@ impl Game {
         
         Err("Shouldnt be reachable...".to_string())
     }
+
+    /// returns the unit with `id`
+    fn get_unit(&self, id: u64) -> Result<game::Unit, String>{
+        for unit in self.units.iter() {
+            if unit.entity_id() == id {
+                return Ok(unit.clone());
+            }
+        }
+
+        Err("No unit with that ID found".to_string())
+    }
 }
+
+
+
+
+
+
+
 
 fn main() {
     // create our game struct

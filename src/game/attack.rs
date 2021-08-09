@@ -32,4 +32,8 @@ impl Attack {
         self.damage
     }
 
+    /// returns the name of the attack
+    pub fn name(&self) -> String{
+        self.name.clone()
+    }
 }
