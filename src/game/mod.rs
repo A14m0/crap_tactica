@@ -9,11 +9,12 @@ use position::Position;
 
 /// defines a unit 
 pub struct Unit{
-    name: String,
-    team: Team,
-    health: u64,
-    attacks: Vec<Attack>,
-    position: Position
+    name:       String,
+    entity_id:  u64,
+    team:       Team,
+    health:     u64,
+    attacks:    Vec<Attack>,
+    position:   Position,
 }
 
 
@@ -27,14 +28,16 @@ enum DamageStatus {
 impl Unit {
     /// creates a new custom unit 
     pub fn new(
-        name: String,
-        team: Team,
-        health: u64,
-        attacks: Vec<Attack>,
-        position: Position
+        name:       String,
+        entity_id:  u64,
+        team:       Team,
+        health:     u64,
+        attacks:    Vec<Attack>,
+        position:   Position,
     ) -> Self {
         Unit {
             name,
+            entity_id,
             team,
             health,
             attacks,
@@ -44,9 +47,10 @@ impl Unit {
 
     /// creates a new unit with default properties 
     pub fn new_default(
-        name: String,
-        team: Team,
-        position: Position
+        name:       String,
+        entity_id:  u64,
+        team:       Team,
+        position:   Position
     ) -> Self {
         let health = 100;
         let mut attacks: Vec<Attack> = Vec::new();
@@ -63,6 +67,7 @@ impl Unit {
 
         Unit {
             name,
+            entity_id,
             team,
             health,
             attacks,
@@ -71,8 +76,13 @@ impl Unit {
     }
 
     /// returns the position of the unit
-    pub fn get_pos(&self) -> Position {
+    pub fn position(&self) -> Position {
         self.position
+    }
+
+    /// returns the entity_id of the unit 
+    pub fn entity_id(&self) -> u64 {
+        self.entity_id()
     }
 
     /// deals damage to the unit, returning if its still alive or not
@@ -94,8 +104,8 @@ impl Unit {
         target: &mut Self
     ) -> Result<(),String>{
         // make sure the target is within range
-        let distance = self.get_pos()
-                           .distance(target.get_pos());
+        let distance = self.position()
+                           .distance(target.position());
 
         // make sure we are within range for the attack
         if distance > attack.range() {
