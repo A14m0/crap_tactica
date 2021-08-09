@@ -1,20 +1,24 @@
 // defines our units and stuff
 
-pub mod team;
-pub mod attack;
-pub mod position;
-use team::Team;
-use attack::Attack;
-use position::Position;
+mod team;
+mod attack;
+mod position;
+mod errors;
+pub use team::Team;
+pub use attack::Attack;
+pub use position::Position;
+pub use errors::ErrorOut;
 
 /// defines a unit 
+#[derive(Clone)]
 pub struct Unit{
-    name:       String,
-    entity_id:  u64,
-    team:       Team,
-    health:     u64,
-    attacks:    Vec<Attack>,
-    position:   Position,
+    name:           String,
+    entity_id:      u64,
+    team:           Team,
+    health:         u64,
+    attacks:        Vec<Attack>,
+    position:       Position,
+    action_count:   u64
 }
 
 
@@ -35,13 +39,15 @@ impl Unit {
         attacks:    Vec<Attack>,
         position:   Position,
     ) -> Self {
+        let action_count = 0u64;
         Unit {
             name,
             entity_id,
             team,
             health,
             attacks,
-            position
+            position,
+            action_count
         }
     }
 
@@ -53,6 +59,7 @@ impl Unit {
         position:   Position
     ) -> Self {
         let health = 100;
+        let action_count = 0u64;
         let mut attacks: Vec<Attack> = Vec::new();
         attacks.push(Attack::new(
             "Fight".to_string(),
@@ -71,7 +78,8 @@ impl Unit {
             team,
             health,
             attacks,
-            position
+            position,
+            action_count
         }
     }
 
@@ -82,7 +90,27 @@ impl Unit {
 
     /// returns the entity_id of the unit 
     pub fn entity_id(&self) -> u64 {
-        self.entity_id()
+        self.entity_id
+    }
+
+    /// returns the team of the unit 
+    pub fn team(&self) -> Team {
+        self.team
+    }
+
+    /// returns the action count of the unit 
+    pub fn action_count(&self) -> u64 {
+        self.action_count
+    }
+    
+    /// updates the action count of the unit 
+    pub fn inc_action_count(&mut self) {
+        self.action_count += 1;
+    }
+
+    /// returns the name of the unit 
+    pub fn name(&self) -> String {
+        self.name.clone()
     }
 
     /// deals damage to the unit, returning if its still alive or not

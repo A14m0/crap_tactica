@@ -1,4 +1,5 @@
 /// defines an attack a unit can do
+#[derive(Clone)]
 pub struct Attack {
     name: String,
     damage: u64,
