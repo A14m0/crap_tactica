@@ -16,6 +16,13 @@ pub struct Unit{
     position: Position
 }
 
+
+/// enum for returning if a unit died while dealing damage
+enum DamageStatus {
+    Alive,
+    Dead
+}
+
 // begin implementing stuff for our units
 impl Unit {
     /// creates a new custom unit 
@@ -68,14 +75,39 @@ impl Unit {
         self.position
     }
 
+    /// deals damage to the unit, returning if its still alive or not
+    fn deal_damage(&mut self, damage: u64) -> DamageStatus {
+        // see if the damage would kill us
+        if damage > self.health {
+            self.health = 0;
+            return DamageStatus::Dead;
+        }
+
+        self.health -= damage;
+        DamageStatus::Alive
+    }
+
     /// make unit do attack
-    pub fn do_attack(&self, attack: Attack, target: &mut Self) {
+    pub fn do_attack(
+        &self, 
+        attack: Attack, 
+        target: &mut Self
+    ) -> Result<(),String>{
         // make sure the target is within range
         let distance = self.get_pos()
                            .distance(target.get_pos());
 
+        // make sure we are within range for the attack
         if distance > attack.range() {
-        
+            return Err("Target out of range".to_string());
         }
+
+        // do the attack (i.e. deal damage to target)
+        match target.deal_damage(attack.damage()) {
+            DamageStatus::Alive => (),
+            DamageStatus::Dead => () // todo: do something when a target is dead
+        };
+
+        Ok(())
     }
 }

@@ -1,7 +1,7 @@
 /// defines an attack a unit can do
 pub struct Attack {
     name: String,
-    damage: usize,
+    damage: u64,
     range: f64,
     // TODO: Can add effects creators down here at some point
 }
@@ -11,7 +11,7 @@ impl Attack {
     /// creates a new attack 
     pub fn new(
         name: String,
-        damage: usize,
+        damage: u64,
         range: f64
     ) -> Self {
         Attack {
@@ -25,4 +25,10 @@ impl Attack {
     pub fn range(&self) -> f64 {
         self.range
     }
+
+    /// returns the damage of the attack
+    pub fn damage(&self) -> u64{
+        self.damage
+    }
+
 }
