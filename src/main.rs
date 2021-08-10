@@ -12,13 +12,27 @@ const EMPTY_ID:     u64 = 0x7fffffffffffffff;
 /// defines a command usable in the game
 #[derive(Clone)]
 struct Command {
-    cmd: String,
+    cmd:    String,
+    help:   String,
     action: fn (game: &mut Game, unit_id: u64) -> game::ErrorOut,
+}
+
+/// function that helps simplify the fetching of user input
+fn input(print: String) -> String {
+    // get the string
+    print!("{}", print);
+    std::io::stdout().flush().unwrap();
+    let mut ustr = String::new();
+    std::io::stdin().read_line(&mut ustr).unwrap();
+    let ustr = ustr.replace("\n", "");
+
+    ustr
 }
 
 //////////////// ACTION CMDS //////////////////////////
 /// Attack a target
 fn attack(game: &mut Game, unit_id: u64) -> game::ErrorOut {
+    // get the attacker's unit information
     let s = match game.get_unit(unit_id) {
         Ok(a) => a,
         Err(e) => {
@@ -27,28 +41,99 @@ fn attack(game: &mut Game, unit_id: u64) -> game::ErrorOut {
         }
     };
     
-    println!("{} can use the following attacks:", s.name());
-    let mut idx = 0;
-    for attack in s.attacks() {
-        println!(
-            "\t{}. {} (range {}, dmg {})", 
-            idx+1, 
-            attack.name(),
-            attack.range(),
-            attack.damage()
-        )
+    loop {
+        // determine which attack we should use
+        println!("{} can use the following attacks:", s.name());
+        let mut idx = 0;
+        for attack in s.attacks() {
+            idx += 1;
+            println!(
+                "\t{}. {} (range {}, dmg {})", 
+                idx, 
+                attack.name(),
+                attack.range(),
+                attack.damage()
+            );
+        }
+
+        let ustr = input(format!("Attack with which number > "));
+
+        // get the index of the attack to use
+        let attack_idx = match ustr.parse::<usize>() {
+            Ok(a) => a-1,
+            Err(_) => {
+                println!("[-] That was not a valid number. Select the attack by the number to the left of it");
+                continue
+            }
+        };
+
+        // now try to figure out what targets are within range and add them to a vector
+        let mut uctr = 0;
+        let mut tgt_vec: Vec<game::Unit> = Vec::new();
+        for u in game.units() {
+            // check if the attack is within range
+            if s.attacks()[attack_idx as usize].range() >= s.position().distance(u.position()) 
+                && u.team() != s.team() {
+                uctr += 1;
+                println!("\t{}: {}", uctr, u);
+                tgt_vec.push(u);
+            }
+        }
+
+        let ustr = input(format!("Attack which unit > "));
+
+        let target_idx = match ustr.parse::<usize>() {
+            Ok(a) => a-1,
+            Err(_) => {
+                println!("[-] That was not a valid number. Select the attack by the number to the left of it");
+                continue
+            }
+        };
+        let target_id = tgt_vec[target_idx].entity_id();
+        // try to do the attack
+        match game.do_attack(
+            s.entity_id(),
+            target_id,
+            s.attacks()[attack_idx as usize].clone()
+        ) {
+            Ok(a) => match a {
+                game::DamageStatus::Alive => {
+                    let target_unit = game.get_unit(target_id).unwrap();
+                    println!("[+] Attack hit! {} is now at {} hp!", 
+                    target_unit.name(), target_unit.health());
+                    return game::ErrorOut::SUCCESS;
+                },
+                game::DamageStatus::Dead => {
+                    println!("[+] Enemy was killed!");
+                    return game::ErrorOut::SUCCESS;
+                }
+            },
+            Err(e) => println!("Failed to do attack: {}", e)
+
+        }
     }
-
-
-    println!("Attacking!");
-
-    game::ErrorOut::SUCCESS
 }
 
 /// Move unit to new position
 fn move_unit(game: &mut Game, unit_id: u64) -> game::ErrorOut {
     println!("Moving!");
     game::ErrorOut::SUCCESS
+}
+
+/// Move unit to new position
+fn help(game: &mut Game, unit_id: u64) -> game::ErrorOut {
+    println!("Available Commands:");
+    for comm in game.commands() {
+        println!("\t{}: \t{}", comm.cmd, comm.help);
+    }
+    game::ErrorOut::SUCCESS_INCOMPLETE
+}
+
+/// Prints the health of the unit
+fn health(game: &mut Game, unit_id: u64) -> game::ErrorOut {
+    let s = game.get_unit(unit_id).unwrap();
+    println!("{} is at {} hitpoints", s.name(), s.health());
+    game::ErrorOut::SUCCESS_INCOMPLETE
 }
 
 
@@ -85,7 +170,7 @@ impl Game {
         for i in 0..3 {
             units.push(
                 game::Unit::new_default(
-                    "Billy but Bad".to_string(), 
+                    format!("Billy but Bad #{}", i+1), 
                     i+3, 
                     game::Team::Redfor,
                     // note we will update these later on when we generate the grid 
@@ -153,6 +238,7 @@ impl Game {
         commands.push(
             Command{
                 cmd: "attack".to_string(),
+                help: "Attack an enemy".to_string(),
                 action: attack
             }
         );
@@ -160,7 +246,24 @@ impl Game {
         commands.push(
             Command {
                 cmd: "move".to_string(),
+                help: "Move to a new position".to_string(),
                 action: move_unit
+            }
+        );
+        // "health"
+        commands.push(
+            Command {
+                cmd: "health".to_string(),
+                help: "Shows the health of your unit".to_string(),
+                action: health
+            }
+        );
+        // "help"
+        commands.push(
+            Command {
+                cmd: "help".to_string(),
+                help: "Shows all of the commands".to_string(),
+                action: help
             }
         );
 
@@ -173,9 +276,14 @@ impl Game {
         }
     }
 
-    /// returns the number of turns each player should get before looing again
+    /// returns the units currently in the game
+    fn units(&self) -> Vec<game::Unit> {
+        self.units.clone()
+    }
+
+    /// returns the number of turns each player should get before looping again
     fn count_player_turns(&self) -> usize {
-        self.units.len() / 2
+        self.units.len()
     }
 
     /// returns all the available commands for the game
@@ -226,6 +334,63 @@ impl Game {
 
         Err("No unit with that ID found".to_string())
     }
+    
+    /// does the attack on behalf of the unit
+    fn do_attack(
+        &mut self, 
+        attacker:   u64,
+        target:     u64,
+        attack:     game::Attack 
+    ) -> Result<game::DamageStatus, String>{
+        // find the attacker and target
+        let mut attacker_idx = 0;
+        for unit in self.units.iter() {
+            if unit.entity_id() == attacker {
+                break;
+            }
+            attacker_idx += 1;
+        }
+        // remove mutability
+        let attacker_idx = attacker_idx;
+
+        let mut target_idx = 0;
+        for unit in self.units.iter() {
+            if unit.entity_id() == target {
+                break;
+            }
+            target_idx += 1;
+        }
+        // remove mutability
+        let target_idx = target_idx;
+
+        
+        // make sure the target is within range
+        let distance = self.units[attacker_idx].position()
+                           .distance(self.units[target_idx].position());
+
+        // make sure we are within range for the attack
+        if distance > attack.range() {
+            return Err("Target out of range".to_string());
+        }
+
+
+        // increment the unit action
+        self.incr_unit_action(attacker);
+        
+        // now try to do the attack
+        match self.units[target_idx]
+            .deal_damage(attack.damage()) {
+            game::DamageStatus::Alive => {
+                Ok(game::DamageStatus::Alive)
+            },
+            game::DamageStatus::Dead => {
+                // remove the target unit from the list
+                self.units.remove(target_idx);
+                Ok(game::DamageStatus::Dead)
+            }
+        }
+        
+    }
 }
 
 
@@ -248,41 +413,69 @@ fn main() {
     );
 
     let p1: game::Team;
-    let p2: game::Team;
     // see who gets the first turn
     if rand::random() {
         println!("[B] BLUEFOR has seized the initiative!");
         p1 = game::Team::Bluefor;
-        p2 = game::Team::Redfor;
     } else {
         println!("[R] REDFOR has seized the initiative!");
         p1 = game::Team::Redfor;
-        p2 = game::Team::Bluefor;
     }
 
     // begin main game loop
     loop {
         println!("[+] Top of the initiative order");
         // loop over each pair of player turns
+        let mut curr_team = p1;
         for _pair in 0..player_turns{
-            // find the player's units
-            let s1 = match g.find_next_unit(p1) {
-                Ok(a) => a, 
-                Err(e) => panic!("Failed to get next unit: {}", e)
-            };
-            let s2 = match g.find_next_unit(p2) {
-                Ok(a) => a, 
-                Err(e) => panic!("Failed to get next unit: {}", e)
-            };
+            // make sure there are units for both teams available
+            let mut bf_ctr = 0;
+            let mut rf_ctr = 0;
+            for unit in g.units() {
+                match unit.team() {
+                    game::Team::Redfor => rf_ctr += 1,
+                    game::Team::Bluefor => bf_ctr += 1
+                }
+            }
 
-            // get the first player's input 
+            if bf_ctr == 0 {
+                println!("[-] NO MORE BLUEFOR UNITS!");
+                println!("[+] REDFOR WINS!");
+                return;
+            } 
+            if rf_ctr == 0 {
+                println!("[-] NO MORE REDFOR UNITS!");
+                println!("[+] BLUEFOR WINS!");
+                return;
+            } 
+            
+
+            // find the player's units
+            let s1 = match curr_team {
+                game::Team::Bluefor => {
+                    match g.find_next_unit(game::Team::Bluefor) {
+                        Ok(a) => a, 
+                        Err(e) => {
+                            println!("[-] NO MORE BLUEFOR UNITS!");
+                            println!("[+] REDFOR WINS!");
+                            return;
+                        }
+                    }
+                },
+                game::Team::Redfor => {
+                    match g.find_next_unit(game::Team::Redfor) {
+                        Ok(a) => a, 
+                        Err(e) => {
+                            println!("[-] NO MORE REDFOR UNITS!");
+                            println!("[+] BLUEFOR WINS!");
+                            return;
+                        }
+                    }
+                }
+            };
+            // get the player's input 
             loop {
-                // get the string
-                print!("[{}] {} > ", s1.team(), s1.name());
-                std::io::stdout().flush().unwrap();
-                let mut ustr = String::new();
-                std::io::stdin().read_line(&mut ustr).unwrap();
-                let ustr = ustr.replace("\n", "");
+                let ustr = input(format!("[{}] {} > ", s1.team(), s1.name()));
 
                 // look for the command
                 let mut rcode: game::ErrorOut = game::ErrorOut::NOT_FOUND;
@@ -294,37 +487,14 @@ fn main() {
 
                 // deterine command outcome
                 match rcode {
-                    game::ErrorOut::SUCCESS => {
-                        g.incr_unit_action(s1.entity_id());
-                        break
-                    },
-                    game::ErrorOut::NOT_FOUND => println!("[-] Command not found"),
-                    _ => println!("[-] Unexpected error...")
-                }
-            }
-
-            // get the second player's input 
-            loop {
-                print!("[{}] {} > ", s2.team(), s2.name());
-                std::io::stdout().flush().unwrap();
-                let mut ustr = String::new();
-                std::io::stdin().read_line(&mut ustr).unwrap();
-                let ustr = ustr.replace("\n", "");
-
-                let mut rcode: game::ErrorOut = game::ErrorOut::NOT_FOUND;
-                for comm in &game_commands {
-                    if ustr == comm.cmd {
-                        rcode = (comm.action)(&mut g, s1.entity_id());
-                    }
-                } 
-
-                match rcode {
                     game::ErrorOut::SUCCESS => break,
+                    game::ErrorOut::SUCCESS_INCOMPLETE => continue,
                     game::ErrorOut::NOT_FOUND => println!("[-] Command not found"),
                     _ => println!("[-] Unexpected error...")
                 }
             }
 
+            curr_team = curr_team.other_team();
         }
 
         // get the user's input

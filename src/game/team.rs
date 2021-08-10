@@ -19,3 +19,14 @@ impl std::fmt::Display for Team {
         write!(f, "{}", printable)
     }
 }
+
+impl Team {
+    /// returns the other team
+    pub fn other_team(self) -> Team {
+        if self == Team::Redfor {
+            return Team::Bluefor;
+        } else {
+            return Team::Redfor;
+        }
+    }
+}
