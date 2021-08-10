@@ -141,4 +141,8 @@ impl Unit {
         DamageStatus::Alive
     }
 
+    /// move the unit to the new `Position`
+    pub fn move_unit(&mut self, newpos: Position) {
+        self.position = newpos
+    }
 }

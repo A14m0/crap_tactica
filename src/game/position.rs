@@ -5,6 +5,13 @@ pub struct Position {
     y: usize
 } 
 
+/// display format implementation
+impl std::fmt::Display for Position {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}x{}", self.x, self.y)
+    }
+}
+
 impl Position {
     /// creates a new position
     pub fn new(x:usize, y:usize) -> Self {

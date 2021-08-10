@@ -115,13 +115,13 @@ fn attack(game: &mut Game, unit_id: u64) -> game::ErrorOut {
 }
 
 /// Move unit to new position
-fn move_unit(game: &mut Game, unit_id: u64) -> game::ErrorOut {
+fn move_unit(_game: &mut Game, _unit_id: u64) -> game::ErrorOut {
     println!("Moving!");
     game::ErrorOut::SUCCESS
 }
 
 /// Move unit to new position
-fn help(game: &mut Game, unit_id: u64) -> game::ErrorOut {
+fn help(game: &mut Game, _unit_id: u64) -> game::ErrorOut {
     println!("Available Commands:");
     for comm in game.commands() {
         println!("\t{}: \t{}", comm.cmd, comm.help);
@@ -136,10 +136,16 @@ fn health(game: &mut Game, unit_id: u64) -> game::ErrorOut {
     game::ErrorOut::SUCCESS_INCOMPLETE
 }
 
+/// Prints the position of the unit
+fn position(game: &mut Game, unit_id: u64) -> game::ErrorOut {
+    let s = game.get_unit(unit_id).unwrap();
+    println!("{} is at position {}", s.name(), s.position());
+    game::ErrorOut::SUCCESS_INCOMPLETE
+}
+
 
 /// defines our game grid
 struct Game {
-    size:       u64,
     grid:       Vec<Vec<u64>>,
     units:      Vec<game::Unit>,
     commands:   Vec<Command>
@@ -187,9 +193,17 @@ impl Game {
             // check if the row is the deployment zone for REDFOR
             if row == 0 {
                 // add all REDFOR soldiers to the corner and over
-                for soldier in &units{
+                let mut rctr = 0;
+                for soldier in units.iter_mut(){
                     if soldier.team() == game::Team::Redfor {
                         grid[row as usize].push(soldier.entity_id());
+                        soldier.move_unit(
+                            game::Position::new (
+                                row as usize , 
+                                rctr
+                            )
+                        );
+                        rctr += 1;
                     }
                 }
                 for _ in 0..size as usize - grid[row as usize].len() {
@@ -212,9 +226,17 @@ impl Game {
                 }
 
                 // add all BLUEFOR soldiers to the corner and over
-                for soldier in &units{
+                let mut bctr = scount;
+                for soldier in units.iter_mut(){
                     if soldier.team() == game::Team::Bluefor {
                         grid[row as usize].push(soldier.entity_id());
+                        soldier.move_unit(
+                            game::Position::new (
+                                row as usize , 
+                                bctr,
+                            )
+                        );
+                        bctr += 1;
                     }
                 }
             } else {
@@ -258,6 +280,14 @@ impl Game {
                 action: health
             }
         );
+        // "position"
+        commands.push(
+            Command {
+                cmd: "position".to_string(),
+                help: "Shows the position of your unit".to_string(),
+                action: position
+            }
+        );
         // "help"
         commands.push(
             Command {
@@ -269,7 +299,6 @@ impl Game {
 
 
         Game {
-            size,
             grid,
             units,
             commands
