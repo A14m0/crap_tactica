@@ -180,11 +180,17 @@ fn position(game: &mut Game, unit_id: u64) -> game::ErrorOut {
 }
 
 /// Move unit to new position
-fn end(_game: &mut Game, _unit_id: u64) -> game::ErrorOut {
+fn end(game: &mut Game, unit_id: u64) -> game::ErrorOut {
     println!("[-] Turn ended!");
+    game.incr_unit_action(unit_id);
     game::ErrorOut::SUCCESS
 }
 
+/// End the game and exit
+fn endgame(game: &mut Game, unit_id: u64) -> game::ErrorOut {
+    println!("[+] Game complete!");
+    std::process::exit(0);
+}
 
 /// defines our game grid
 struct Game {
@@ -336,6 +342,14 @@ impl Game {
                 cmd: "end".to_string(),
                 help: "End your unit's turn".to_string(),
                 action: end
+            }
+        );
+        // "endgame"
+        commands.push(
+            Command {
+                cmd: "endgame".to_string(),
+                help: "Ends the game in a draw".to_string(),
+                action: endgame
             }
         );
         // "help"
@@ -498,101 +512,111 @@ impl Game {
 
     /// attempts to move a unit 
     fn move_unit(&mut self, unit_id: u64, mov: game::Movement) -> game::ErrorOut {
-        let mut unit = self.get_unit(unit_id).unwrap();
+        // find the attacker and target
+        let mut idx = 0;
+        for unit in self.units.iter() {
+            if unit.entity_id() == unit_id {
+                break;
+            }
+            idx += 1;
+        }
 
-        println!("Current pos {}", unit.position());
+        let curr_pos = self.units[idx].position();
+        
+        
+        println!("Current pos {}", self.units[idx].position());
         match mov {
             game::Movement::Up => {
-                if unit.position().x() == self.grid.len() {
+                if curr_pos.x() == self.grid.len() {
                     return game::ErrorOut::FAILED_GENERIC;
                 }
-                let above = unit.position().x() + 1;
+                let above = curr_pos.x() + 1;
                 // note this catches both terrain and friendly units in the way
-                if self.grid[above][unit.position().y()] != EMPTY_ID {
+                if self.grid[above][curr_pos.y()] != EMPTY_ID {
                     return game::ErrorOut::FAILED_GENERIC;
                 }
 
                 // position is valid, update internal stuff
-                self.grid[above][unit.position().y()] = unit_id;
-                self.grid[above-1][unit.position().y()] = EMPTY_ID;
+                self.grid[above][curr_pos.y()] = unit_id;
+                self.grid[above-1][curr_pos.y()] = EMPTY_ID;
 
-                println!("Current pos {}x{}", above, unit.position().y());
+                println!("Current pos {}x{}", above, curr_pos.y());
 
-                unit.move_unit(
+                self.units[idx].move_unit(
                     game::Position::new(
                         above,
-                        unit.position().y()
+                        curr_pos.y()
                     )
                 );
             },
             game::Movement::Down => {
                 // bounds check it
-                if unit.position().x() == 0 {
+                if curr_pos.x() == 0 {
                     return game::ErrorOut::FAILED_GENERIC;
                 }
-                let below = unit.position().x() - 1;
+                let below = curr_pos.x() - 1;
                 // note this catches both terrain and friendly units in the way
-                if self.grid[below][unit.position().y()] != EMPTY_ID {
+                if self.grid[below][curr_pos.y()] != EMPTY_ID {
                     return game::ErrorOut::FAILED_GENERIC;
                 }
 
                 // position is valid, update internal stuff
-                self.grid[below][unit.position().y()] = unit_id;
-                self.grid[below+1][unit.position().y()] = EMPTY_ID;
+                self.grid[below][curr_pos.y()] = unit_id;
+                self.grid[below+1][curr_pos.y()] = EMPTY_ID;
 
-                println!("Current pos {}x{}", below, unit.position().y());
+                println!("Current pos {}x{}", below, curr_pos.y());
 
-                unit.move_unit(
+                self.units[idx].move_unit(
                     game::Position::new(
                         below,
-                        unit.position().y()
+                        curr_pos.y()
                     )
                 );
             },
             game::Movement::Left => {
                 // bounds check it
-                if unit.position().y() == 0 {
+                if curr_pos.y() == 0 {
                     return game::ErrorOut::FAILED_GENERIC;
                 }
-                let aside = unit.position().y() - 1;
+                let aside = curr_pos.y() - 1;
                 // note this catches both terrain and friendly units in the way
-                if self.grid[unit.position().x()][aside] != EMPTY_ID {
+                if self.grid[curr_pos.x()][aside] != EMPTY_ID {
                     return game::ErrorOut::FAILED_GENERIC;
                 }
 
                 // position is valid, update internal stuff
-                self.grid[unit.position().x()][aside] = unit_id;
-                self.grid[unit.position().x()][aside+1] = EMPTY_ID;
+                self.grid[curr_pos.x()][aside] = unit_id;
+                self.grid[curr_pos.x()][aside+1] = EMPTY_ID;
 
-                println!("Current pos {}x{}", unit.position().x(), aside);
+                println!("Current pos {}x{}", curr_pos.x(), aside);
 
-                unit.move_unit(
+                self.units[idx].move_unit(
                     game::Position::new(
-                        unit.position().x(),
+                        curr_pos.x(),
                         aside
                     )
                 );
             },
             game::Movement::Right => {
                 // bounds check it
-                if unit.position().y() == self.grid.len() {
+                if curr_pos.y() == self.grid.len() {
                     return game::ErrorOut::FAILED_GENERIC;
                 }
-                let aside = unit.position().y() + 1;
+                let aside = curr_pos.y() + 1;
                 // note this catches both terrain and friendly units in the way
-                if self.grid[unit.position().x()][aside] != EMPTY_ID {
+                if self.grid[curr_pos.x()][aside] != EMPTY_ID {
                     return game::ErrorOut::FAILED_GENERIC;
                 }
 
                 // position is valid, update internal stuff
-                self.grid[unit.position().x()][aside] = unit_id;
-                self.grid[unit.position().x()][aside-1] = EMPTY_ID;
+                self.grid[curr_pos.x()][aside] = unit_id;
+                self.grid[curr_pos.x()][aside-1] = EMPTY_ID;
 
-                println!("Current pos {}x{}", unit.position().x(), aside);
+                println!("Current pos {}x{}", curr_pos.x(), aside);
 
-                unit.move_unit(
+                self.units[idx].move_unit(
                     game::Position::new(
-                        unit.position().x(),
+                        curr_pos.x(),
                         aside
                     )
                 );
