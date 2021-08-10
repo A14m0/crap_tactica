@@ -1,3 +1,29 @@
+/// defines a movement direction
+#[derive(Copy,Clone,PartialEq)]
+pub enum Movement {
+    Up,
+    Down,
+    Left,
+    Right
+}
+
+/// display format implementation
+impl std::fmt::Display for Movement {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let printable = match self {
+            Movement::Up => "Up",
+            Movement::Down => "Down",
+            Movement::Left => "Left",
+            Movement::Right => "Right",
+        };
+        
+        write!(f, "{}", printable)
+    }
+}
+
+
+
+
 /// defines a position on the board
 #[derive(Copy,Clone,PartialEq)]
 pub struct Position {

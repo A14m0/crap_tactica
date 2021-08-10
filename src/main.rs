@@ -115,8 +115,44 @@ fn attack(game: &mut Game, unit_id: u64) -> game::ErrorOut {
 }
 
 /// Move unit to new position
-fn move_unit(_game: &mut Game, _unit_id: u64) -> game::ErrorOut {
-    println!("Moving!");
+fn move_unit(game: &mut Game, unit_id: u64) -> game::ErrorOut {
+    loop {
+        // print movement options
+        println!("Movement options: ");
+        println!("\t1. Up");
+        println!("\t2. Down");
+        println!("\t3. Left");
+        println!("\t4. Right");
+    
+        // get the user's selection and convert it to an enum
+        let ustr = input(format!("Pick a movement > "));
+        let movement_val = match ustr.parse::<usize>() {
+            Ok(a) => a-1,
+            Err(_) => {
+                println!("[-] That was not a valid number. Select the attack by the number to the left of it");
+                continue
+            }
+        };
+
+        let mov = match movement_val {
+            0 => game::Movement::Up,
+            1 => game::Movement::Down,
+            2 => game::Movement::Left,
+            3 => game::Movement::Right,
+            _ => {
+                println!("[-] That was not a valid movement selection.");
+                continue
+            }
+        };
+
+        // try to move the unit
+        match game.move_unit(unit_id, mov) {
+            game::ErrorOut::SUCCESS => break,
+            _ => println!("[-] Cannot move there!")
+        }
+    }
+
+    game.incr_unit_action(unit_id);
     game::ErrorOut::SUCCESS
 }
 
@@ -141,6 +177,12 @@ fn position(game: &mut Game, unit_id: u64) -> game::ErrorOut {
     let s = game.get_unit(unit_id).unwrap();
     println!("{} is at position {}", s.name(), s.position());
     game::ErrorOut::SUCCESS_INCOMPLETE
+}
+
+/// Move unit to new position
+fn end(_game: &mut Game, _unit_id: u64) -> game::ErrorOut {
+    println!("[-] Turn ended!");
+    game::ErrorOut::SUCCESS
 }
 
 
@@ -226,7 +268,7 @@ impl Game {
                 }
 
                 // add all BLUEFOR soldiers to the corner and over
-                let mut bctr = scount;
+                let mut bctr = size as usize - scount;
                 for soldier in units.iter_mut(){
                     if soldier.team() == game::Team::Bluefor {
                         grid[row as usize].push(soldier.entity_id());
@@ -286,6 +328,14 @@ impl Game {
                 cmd: "position".to_string(),
                 help: "Shows the position of your unit".to_string(),
                 action: position
+            }
+        );
+        // "end"
+        commands.push(
+            Command {
+                cmd: "end".to_string(),
+                help: "End your unit's turn".to_string(),
+                action: end
             }
         );
         // "help"
@@ -420,6 +470,137 @@ impl Game {
         }
         
     }
+
+    /// prints the grid to the screen
+    fn print_grid(&self) {
+        // loop over each row
+        for row in 0..self.grid.len() {
+            let row = self.grid.len() - row -1;
+            print!("|");
+            // loop over each cell
+            for cell in 0..self.grid[row].len() {
+                let id = self.grid[row][cell];
+                if id == EMPTY_ID {
+                    print!(" |");
+                } else if id == TERRAIN_ID {
+                    print!("^|");
+                } else {
+                    let unit = self.get_unit(id).unwrap();
+                    match unit.team() {
+                        game::Team::Redfor => print!("R|"),
+                        game::Team::Bluefor => print!("B|")
+                    }
+                }
+            }
+            println!("");
+        }
+    }
+
+    /// attempts to move a unit 
+    fn move_unit(&mut self, unit_id: u64, mov: game::Movement) -> game::ErrorOut {
+        let mut unit = self.get_unit(unit_id).unwrap();
+
+        println!("Current pos {}", unit.position());
+        match mov {
+            game::Movement::Up => {
+                if unit.position().x() == self.grid.len() {
+                    return game::ErrorOut::FAILED_GENERIC;
+                }
+                let above = unit.position().x() + 1;
+                // note this catches both terrain and friendly units in the way
+                if self.grid[above][unit.position().y()] != EMPTY_ID {
+                    return game::ErrorOut::FAILED_GENERIC;
+                }
+
+                // position is valid, update internal stuff
+                self.grid[above][unit.position().y()] = unit_id;
+                self.grid[above-1][unit.position().y()] = EMPTY_ID;
+
+                println!("Current pos {}x{}", above, unit.position().y());
+
+                unit.move_unit(
+                    game::Position::new(
+                        above,
+                        unit.position().y()
+                    )
+                );
+            },
+            game::Movement::Down => {
+                // bounds check it
+                if unit.position().x() == 0 {
+                    return game::ErrorOut::FAILED_GENERIC;
+                }
+                let below = unit.position().x() - 1;
+                // note this catches both terrain and friendly units in the way
+                if self.grid[below][unit.position().y()] != EMPTY_ID {
+                    return game::ErrorOut::FAILED_GENERIC;
+                }
+
+                // position is valid, update internal stuff
+                self.grid[below][unit.position().y()] = unit_id;
+                self.grid[below+1][unit.position().y()] = EMPTY_ID;
+
+                println!("Current pos {}x{}", below, unit.position().y());
+
+                unit.move_unit(
+                    game::Position::new(
+                        below,
+                        unit.position().y()
+                    )
+                );
+            },
+            game::Movement::Left => {
+                // bounds check it
+                if unit.position().y() == 0 {
+                    return game::ErrorOut::FAILED_GENERIC;
+                }
+                let aside = unit.position().y() - 1;
+                // note this catches both terrain and friendly units in the way
+                if self.grid[unit.position().x()][aside] != EMPTY_ID {
+                    return game::ErrorOut::FAILED_GENERIC;
+                }
+
+                // position is valid, update internal stuff
+                self.grid[unit.position().x()][aside] = unit_id;
+                self.grid[unit.position().x()][aside+1] = EMPTY_ID;
+
+                println!("Current pos {}x{}", unit.position().x(), aside);
+
+                unit.move_unit(
+                    game::Position::new(
+                        unit.position().x(),
+                        aside
+                    )
+                );
+            },
+            game::Movement::Right => {
+                // bounds check it
+                if unit.position().y() == self.grid.len() {
+                    return game::ErrorOut::FAILED_GENERIC;
+                }
+                let aside = unit.position().y() + 1;
+                // note this catches both terrain and friendly units in the way
+                if self.grid[unit.position().x()][aside] != EMPTY_ID {
+                    return game::ErrorOut::FAILED_GENERIC;
+                }
+
+                // position is valid, update internal stuff
+                self.grid[unit.position().x()][aside] = unit_id;
+                self.grid[unit.position().x()][aside-1] = EMPTY_ID;
+
+                println!("Current pos {}x{}", unit.position().x(), aside);
+
+                unit.move_unit(
+                    game::Position::new(
+                        unit.position().x(),
+                        aside
+                    )
+                );
+            },
+        }
+
+        game::ErrorOut::SUCCESS
+    }
 }
 
 
@@ -457,6 +638,7 @@ fn main() {
         // loop over each pair of player turns
         let mut curr_team = p1;
         for _pair in 0..player_turns{
+            g.print_grid();
             // make sure there are units for both teams available
             let mut bf_ctr = 0;
             let mut rf_ctr = 0;

@@ -6,7 +6,10 @@ mod position;
 mod errors;
 pub use team::Team;
 pub use attack::Attack;
-pub use position::Position;
+pub use position::{
+    Position,
+    Movement
+};
 pub use errors::ErrorOut;
 
 /// defines a unit 
