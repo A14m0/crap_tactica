@@ -37,7 +37,7 @@ fn attack(game: &mut Game, unit_id: u64) -> game::ErrorOut {
         Ok(a) => a,
         Err(e) => {
             println!("Failed to get unit: {}", e);
-            return game::ErrorOut::FAILED_GENERIC
+            return game::ErrorOut::FailedGeneric
         }
     };
     
@@ -67,6 +67,11 @@ fn attack(game: &mut Game, unit_id: u64) -> game::ErrorOut {
             }
         };
 
+        // bail if we selected "Cancel"
+        if s.attacks()[attack_idx as usize].name() == "Cancel" {
+            return game::ErrorOut::SuccessIncomplete;
+        }
+
         // now try to figure out what targets are within range and add them to a vector
         let mut uctr = 0;
         let mut tgt_vec: Vec<game::Unit> = Vec::new();
@@ -78,6 +83,11 @@ fn attack(game: &mut Game, unit_id: u64) -> game::ErrorOut {
                 println!("\t{}: {}", uctr, u);
                 tgt_vec.push(u);
             }
+        }
+
+        if tgt_vec.len() == 0 {
+            println!("[-] No targets in range!");
+            continue;
         }
 
         let ustr = input(format!("Attack which unit > "));
@@ -101,11 +111,11 @@ fn attack(game: &mut Game, unit_id: u64) -> game::ErrorOut {
                     let target_unit = game.get_unit(target_id).unwrap();
                     println!("[+] Attack hit! {} is now at {} hp!", 
                     target_unit.name(), target_unit.health());
-                    return game::ErrorOut::SUCCESS;
+                    return game::ErrorOut::Success;
                 },
                 game::DamageStatus::Dead => {
                     println!("[+] Enemy was killed!");
-                    return game::ErrorOut::SUCCESS;
+                    return game::ErrorOut::Success;
                 }
             },
             Err(e) => println!("Failed to do attack: {}", e)
@@ -147,13 +157,13 @@ fn move_unit(game: &mut Game, unit_id: u64) -> game::ErrorOut {
 
         // try to move the unit
         match game.move_unit(unit_id, mov) {
-            game::ErrorOut::SUCCESS => break,
+            game::ErrorOut::Success => break,
             _ => println!("[-] Cannot move there!")
         }
     }
 
     game.incr_unit_action(unit_id);
-    game::ErrorOut::SUCCESS
+    game::ErrorOut::Success
 }
 
 /// Move unit to new position
@@ -162,28 +172,28 @@ fn help(game: &mut Game, _unit_id: u64) -> game::ErrorOut {
     for comm in game.commands() {
         println!("\t{}: \t{}", comm.cmd, comm.help);
     }
-    game::ErrorOut::SUCCESS_INCOMPLETE
+    game::ErrorOut::SuccessIncomplete
 }
 
 /// Prints the health of the unit
 fn health(game: &mut Game, unit_id: u64) -> game::ErrorOut {
     let s = game.get_unit(unit_id).unwrap();
     println!("{} is at {} hitpoints", s.name(), s.health());
-    game::ErrorOut::SUCCESS_INCOMPLETE
+    game::ErrorOut::SuccessIncomplete
 }
 
 /// Prints the position of the unit
 fn position(game: &mut Game, unit_id: u64) -> game::ErrorOut {
     let s = game.get_unit(unit_id).unwrap();
     println!("{} is at position {}", s.name(), s.position());
-    game::ErrorOut::SUCCESS_INCOMPLETE
+    game::ErrorOut::SuccessIncomplete
 }
 
 /// Move unit to new position
 fn end(game: &mut Game, unit_id: u64) -> game::ErrorOut {
     println!("[-] Turn ended!");
     game.incr_unit_action(unit_id);
-    game::ErrorOut::SUCCESS
+    game::ErrorOut::Success
 }
 
 /// End the game and exit
@@ -202,7 +212,11 @@ struct Game {
 impl Game {
     /// creates a new default game
     fn new_default() -> Self {
-        let size = 32u64;
+        Self::new(16)
+    }
+
+    /// creates a new game
+    fn new(size: u64) -> Self {
         let mut grid: Vec<Vec<u64>> = Vec::with_capacity(size as usize);
         let mut units: Vec<game::Unit> = Vec::new();
         let mut commands: Vec<Command> = Vec::new();
@@ -528,12 +542,12 @@ impl Game {
         match mov {
             game::Movement::Up => {
                 if curr_pos.x() == self.grid.len() {
-                    return game::ErrorOut::FAILED_GENERIC;
+                    return game::ErrorOut::FailedGeneric;
                 }
                 let above = curr_pos.x() + 1;
                 // note this catches both terrain and friendly units in the way
                 if self.grid[above][curr_pos.y()] != EMPTY_ID {
-                    return game::ErrorOut::FAILED_GENERIC;
+                    return game::ErrorOut::FailedGeneric;
                 }
 
                 // position is valid, update internal stuff
@@ -552,12 +566,12 @@ impl Game {
             game::Movement::Down => {
                 // bounds check it
                 if curr_pos.x() == 0 {
-                    return game::ErrorOut::FAILED_GENERIC;
+                    return game::ErrorOut::FailedGeneric;
                 }
                 let below = curr_pos.x() - 1;
                 // note this catches both terrain and friendly units in the way
                 if self.grid[below][curr_pos.y()] != EMPTY_ID {
-                    return game::ErrorOut::FAILED_GENERIC;
+                    return game::ErrorOut::FailedGeneric;
                 }
 
                 // position is valid, update internal stuff
@@ -576,12 +590,12 @@ impl Game {
             game::Movement::Left => {
                 // bounds check it
                 if curr_pos.y() == 0 {
-                    return game::ErrorOut::FAILED_GENERIC;
+                    return game::ErrorOut::FailedGeneric;
                 }
                 let aside = curr_pos.y() - 1;
                 // note this catches both terrain and friendly units in the way
                 if self.grid[curr_pos.x()][aside] != EMPTY_ID {
-                    return game::ErrorOut::FAILED_GENERIC;
+                    return game::ErrorOut::FailedGeneric;
                 }
 
                 // position is valid, update internal stuff
@@ -600,12 +614,12 @@ impl Game {
             game::Movement::Right => {
                 // bounds check it
                 if curr_pos.y() == self.grid.len() {
-                    return game::ErrorOut::FAILED_GENERIC;
+                    return game::ErrorOut::FailedGeneric;
                 }
                 let aside = curr_pos.y() + 1;
                 // note this catches both terrain and friendly units in the way
                 if self.grid[curr_pos.x()][aside] != EMPTY_ID {
-                    return game::ErrorOut::FAILED_GENERIC;
+                    return game::ErrorOut::FailedGeneric;
                 }
 
                 // position is valid, update internal stuff
@@ -623,7 +637,7 @@ impl Game {
             },
         }
 
-        game::ErrorOut::SUCCESS
+        game::ErrorOut::Success
     }
 }
 
@@ -713,7 +727,7 @@ fn main() {
                 let ustr = input(format!("[{}] {} > ", s1.team(), s1.name()));
 
                 // look for the command
-                let mut rcode: game::ErrorOut = game::ErrorOut::NOT_FOUND;
+                let mut rcode: game::ErrorOut = game::ErrorOut::NotFound;
                 for comm in &game_commands {
                     if ustr == comm.cmd {
                         rcode = (comm.action)(&mut g, s1.entity_id());
@@ -722,9 +736,9 @@ fn main() {
 
                 // deterine command outcome
                 match rcode {
-                    game::ErrorOut::SUCCESS => break,
-                    game::ErrorOut::SUCCESS_INCOMPLETE => continue,
-                    game::ErrorOut::NOT_FOUND => println!("[-] Command not found '{}'", ustr),
+                    game::ErrorOut::Success => break,
+                    game::ErrorOut::SuccessIncomplete => continue,
+                    game::ErrorOut::NotFound => println!("[-] Command not found '{}'", ustr),
                     _ => println!("[-] Unexpected error...")
                 }
             }

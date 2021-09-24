@@ -49,6 +49,14 @@ impl Unit {
         position:   Position,
     ) -> Self {
         let action_count = 0u64;
+        let mut attacks = attacks.clone();
+        attacks.push(
+            Attack::new(
+                "Cancel".to_string(),
+                0,
+                0f64
+            )
+        );
         Unit {
             name,
             entity_id,
@@ -80,6 +88,13 @@ impl Unit {
             30,
             10f64
         ));
+        attacks.push(
+            Attack::new(
+                "Cancel".to_string(),
+                0,
+                0f64
+            )
+        );
 
         Unit {
             name,
