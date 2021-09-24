@@ -24,8 +24,8 @@ fn input(print: String) -> String {
     std::io::stdout().flush().unwrap();
     let mut ustr = String::new();
     std::io::stdin().read_line(&mut ustr).unwrap();
-    let ustr = ustr.replace("\n", "");
-
+    let ustr = ustr.replace("\n", "").replace("\r", "");
+    
     ustr
 }
 
@@ -724,7 +724,7 @@ fn main() {
                 match rcode {
                     game::ErrorOut::SUCCESS => break,
                     game::ErrorOut::SUCCESS_INCOMPLETE => continue,
-                    game::ErrorOut::NOT_FOUND => println!("[-] Command not found"),
+                    game::ErrorOut::NOT_FOUND => println!("[-] Command not found '{}'", ustr),
                     _ => println!("[-] Unexpected error...")
                 }
             }
